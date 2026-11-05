@@ -1,0 +1,109 @@
+{
+  "config": "configs/tier_s.yaml",
+  "duration_s": 8.0,
+  "steps": 50,
+  "guidance": 3.0,
+  "smooth": 0.2,
+  "seed": 42,
+  "motions": [
+    {
+      "prompt": "打一套长拳第七段",
+      "n_frames": 240,
+      "duration_s": 8.0,
+      "n_windows": 2,
+      "seam_jump_max_cmps": 18.384,
+      "seam_jump_mean_cmps": 18.384,
+      "seam_jump_threshold_cmps": 100.0,
+      "seam_ok": true,
+      "timing_ms": {
+        "text_ms": 12.2,
+        "sample_ms": 2757.7,
+        "decode_ms": 7.8,
+        "blend_ms": 1.2,
+        "post_ms": 9.3,
+        "total_ms": 2788.2
+      },
+      "bvh": "D:/TTM/deliverables/generated/00_打一套长拳第七段.bvh",
+      "meta": {
+        "layout_version": 1,
+        "guidance": 3.0,
+        "steps": 50,
+        "seed": 42,
+        "smooth": 0.2,
+        "n_tokens": 38,
+        "expected_frames": 270,
+        "seam_max_cmps": 18.38354435342275,
+        "seam_threshold_cmps": 100.0,
+        "seam_ok": true
+      },
+      "bvh_path": "D:/TTM/deliverables/generated/00_打一套长拳第七段.bvh",
+      "motion_json_path": "D:/TTM/deliverables/generated/00_打一套长拳第七段.json"
+    },
+    {
+      "prompt": "打一套太极拳",
+      "n_frames": 240,
+      "duration_s": 8.0,
+      "n_windows": 2,
+      "seam_jump_max_cmps": 20.167,
+      "seam_jump_mean_cmps": 20.167,
+      "seam_jump_threshold_cmps": 100.0,
+      "seam_ok": true,
+      "timing_ms": {
+        "text_ms": 11.8,
+        "sample_ms": 3093.7,
+        "decode_ms": 6.8,
+        "blend_ms": 0.8,
+        "post_ms": 9.2,
+        "total_ms": 3122.3
+      },
+      "bvh": "D:/TTM/deliverables/generated/01_打一套太极拳.bvh",
+      "meta": {
+        "layout_version": 1,
+        "guidance": 3.0,
+        "steps": 50,
+        "seed": 43,
+        "smooth": 0.2,
+        "n_tokens": 38,
+        "expected_frames": 270,
+        "seam_max_cmps": 20.16656548695159,
+        "seam_threshold_cmps": 100.0,
+        "seam_ok": true
+      },
+      "bvh_path": "D:/TTM/deliverables/generated/01_打一套太极拳.bvh",
+      "motion_json_path": "D:/TTM/deliverables/generated/01_打一套太极拳.json"
+    },
+    {
+      "prompt": "慢慢走上楼梯",
+      "n_frames": 240,
+      "duration_s": 8.0,
+      "n_windows": 2,
+      "seam_jump_max_cmps": 66.912,
+      "seam_jump_mean_cmps": 66.912,
+      "seam_jump_threshold_cmps": 100.0,
+      "seam_ok": true,
+      "timing_ms": {
+        "text_ms": 14.6,
+        "sample_ms": 3301.1,
+        "decode_ms": 6.7,
+        "blend_ms": 0.8,
+        "post_ms": 6.3,
+        "total_ms": 3329.6
+      },
+      "bvh": "D:/TTM/deliverables/generated/02_慢慢走上楼梯.bvh",
+      "meta": {
+        "layout_version": 1,
+        "guidance": 3.0,
+        "steps": 50,
+        "seed": 44,
+        "smooth": 0.2,
+        "n_tokens": 38,
+        "expected_frames": 270,
+        "seam_max_cmps": 66.91199742075656,
+        "seam_threshold_cmps": 100.0,
+        "seam_ok": true
+      },
+      "bvh_path": "D:/TTM/deliverables/generated/02_慢慢走上楼梯.bvh",
+      "motion_json_path": "D:/TTM/deliverables/generated/02_慢慢走上楼梯.json"
+    }
+  ]
+}

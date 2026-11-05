@@ -1,0 +1,79 @@
+# --- 运行期产物 ---------------------------------------------------------------
+/runs/
+/data/
+/.cache/
+/.venv/
+/.venv*/
+
+# --- Python -------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- 测试 / 类型检查 ----------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Jupyter / 文档构建 -------------------------------------------------------
+.ipynb_checkpoints/
+docs/_build/
+
+# --- 编辑器 / 系统 ------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# --- 模型权重（体积大，走 D:/TTM/runs 或 .cache，不入库）----------------------
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.npz
+
+# --- 生成/导出产物（示例文件保留在 deliverables/ 由 .gitignore 例外放行）------
+/data/tier_*/shards/*.npz
+/exports/*.bvh
+/exports/*.json
+
+# --- 本地临时 -----------------------------------------------------------------
+*.log
+!runs/logs/.gitkeep
+tmp/
+.tmp/
+
+# --- 明确保留（少量标注样本/文档需要入库）------------------------------------
+!deliverables/**
+!configs/**
+
+# --- 协作工具内部状态（不入库）----------------------------------------------
+/.workbuddy/

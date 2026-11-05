@@ -1,0 +1,103 @@
+{
+  "version": "1.0",
+  "purpose": "TTM L4 端到端验收 E-01 冻结指令矩阵（QA-PLAN v1.1 §4，主理人 2026-10-29 定稿）",
+  "test_protocol": {
+    "seeds_per_command": 3,
+    "guidance": 7.5,
+    "pass_criteria_all": [
+      "生成成功：POST /api/generate 返回 201 且获得合法 motion_id",
+      "帧数：|n_frames - expected_frames| <= 3",
+      "无 NaN / Inf（特征张量逐元素检查）",
+      "骨架合法：四元数单位范数 ||q||=1 (atol 1e-4)，肘/膝单向关节弯曲角 ∈ [0, 160] 度"
+    ],
+    "default_duration_s": 5,
+    "note": "每条指令 3 个 seed 全部通过才算该条通过；10/10 条通过 E-01 才通过"
+  },
+  "commands": [
+    {
+      "id": "E01-01",
+      "cmd": "上楼梯",
+      "cat": "行走",
+      "expected_frames": 150,
+      "expected_semantics": "上楼/登台阶类步态（爬升或踏步循环）",
+      "judgement": "PRD S1 基准指令；机器断言只验合法性，语义正确性由盲评 §5 另测；根高度或行进应有上升趋势"
+    },
+    {
+      "id": "E01-02",
+      "cmd": "在房间里走一圈",
+      "cat": "行走",
+      "expected_frames": 150,
+      "expected_semantics": "水平行走/转向循环",
+      "judgement": "根轨迹应呈闭合或回位趋势（联动 F-03 互补断言『原地类首尾回位 ±50cm』）"
+    },
+    {
+      "id": "E01-03",
+      "cmd": "打一套长拳",
+      "cat": "武术",
+      "expected_frames": 150,
+      "expected_semantics": "武术拳法套路（大开大合上肢主导 + 步型变换）",
+      "judgement": "基名条件，直接命中训练标签"
+    },
+    {
+      "id": "E01-04",
+      "cmd": "打一套太极拳",
+      "cat": "武术",
+      "expected_frames": 150,
+      "expected_semantics": "太极类缓慢连续套路（低速度、大幅圆弧轨迹）",
+      "judgement": "窗数最多的武术条件（155 窗）；额外断言：输出与训练集太极拳窗口的运动特征自类聚（复用 M-06 自类聚性手段，同指令两 seed 相似度 > 跨指令相似度）"
+    },
+    {
+      "id": "E01-05",
+      "cmd": "舞一段剑术",
+      "cat": "武术",
+      "expected_frames": 150,
+      "expected_semantics": "器械（剑）类武术动作",
+      "judgement": "无道具条件下至少出现舞剑式上肢动作模式；属器械基名条件，注意窗数可能较少"
+    },
+    {
+      "id": "E01-06",
+      "cmd": "挥挥左手",
+      "cat": "部位",
+      "expected_frames": 150,
+      "expected_semantics": "单侧上肢挥手类动作",
+      "judgement": "粗粒度部位控制，PRD §6.3 已声明不保证精确到位；机器只断言合法性，侧别正确性归盲评"
+    },
+    {
+      "id": "E01-07",
+      "cmd": "抬起右腿",
+      "cat": "部位",
+      "expected_frames": 150,
+      "expected_semantics": "单侧下肢抬起动作",
+      "judgement": "同 E01-06；机器断言合法性即可"
+    },
+    {
+      "id": "E01-08",
+      "cmd": "搬起一个箱子",
+      "cat": "持物",
+      "expected_frames": 150,
+      "expected_semantics": "持物/搬运姿态（弯腰抱持类）",
+      "judgement": "无道具，判定对象是『持物姿态』而非真实持物"
+    },
+    {
+      "id": "E01-09",
+      "cmd": "坐下",
+      "cat": "日常",
+      "expected_frames": 150,
+      "expected_semantics": "由站到坐（根高度显著下降）",
+      "judgement": "细类最高频之一；额外观察点：根 y 高度应先显著下降（>=25cm）后保持/回升，可作为软断言记录"
+    },
+    {
+      "id": "E01-10",
+      "cmd": "扫地",
+      "cat": "日常",
+      "expected_frames": 150,
+      "expected_semantics": "持扫帚清扫（躯干前倾 + 上肢往复）",
+      "judgement": "上肢主导 + 躯干前倾模式；无道具判姿态模式即可"
+    }
+  ],
+  "frozen": {
+    "date": "2026-10-29",
+    "frozen_by": "team-lead 定稿 / software-qa-engineer 落盘",
+    "change_policy": "指令集为冻结 fixture，增删改指令须走 QA-PLAN 的规格修订路由并同步更新本文档版本"
+  }
+}

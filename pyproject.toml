@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ttm-motion"
+version = "0.1.0"
+description = "TTM — 中文文本驱动骨骼动作生成（本地可训练，BVH/FBX → UE / three.js）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "TTM Team" }]
+keywords = ["motion-generation", "text-to-motion", "bvh", "diffusion", "unreal-engine"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia :: Graphics :: 3D Modeling",
+  "Operating System :: Microsoft :: Windows",
+]
+
+# 直接依赖 11 个（TTM-ARCH.md §6）。
+# torch 不在此列表固定 index —— 必须走 cu128 通道单独安装：
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+dependencies = [
+  "numpy>=2.1,<3",
+  "scipy>=1.14",
+  "pyyaml>=6",
+  "tqdm>=4.66",
+  "orjson>=3.10",
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "transformers>=4.44",
+  "safetensors>=0.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+# 明确不引入：einops / lightning / accelerate / scikit-learn / trimesh / pyfbx / smplx
+torch = ["torch>=2.6"]
+
+[project.urls]
+Documentation = "D:/TTM/README.md"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ttm*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra --strict-markers"
+markers = [
+  "requires_torch: 需要 torch 的测试（torch 未安装时 SKIP）",
+  "requires_zdrive: 需要只读网络盘 Z:/1000hours 的测试（离线时 SKIP）",
+  "slow: 耗时较长的测试",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["E501"]

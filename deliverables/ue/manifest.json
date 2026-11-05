@@ -1,0 +1,45 @@
+{
+  "format": "ttm-ue-bundle/v1",
+  "target_skeleton": "/Game/Characters/Celeste/SK_Celeste_Skeleton",
+  "destination": "/Game/TTM/Animations",
+  "ue_script": "D:/TTM/deliverables/ue/import_unreal.py",
+  "motions": [
+    {
+      "source": "deliverables/generated/00_打一套长拳第七段.json",
+      "bvh": "D:/TTM/deliverables/ue/00_打一套长拳第七段.bvh",
+      "prompt": "打一套长拳第七段",
+      "fps": 30,
+      "n_frames": 240,
+      "n_bones": 23,
+      "seam_jumps": [
+        18.38354435342275
+      ],
+      "duration_s": 8.0
+    },
+    {
+      "source": "deliverables/generated/01_打一套太极拳.json",
+      "bvh": "D:/TTM/deliverables/ue/01_打一套太极拳.bvh",
+      "prompt": "打一套太极拳",
+      "fps": 30,
+      "n_frames": 240,
+      "n_bones": 23,
+      "seam_jumps": [
+        20.16656548695159
+      ],
+      "duration_s": 8.0
+    },
+    {
+      "source": "deliverables/generated/02_慢慢走上楼梯.json",
+      "bvh": "D:/TTM/deliverables/ue/02_慢慢走上楼梯.bvh",
+      "prompt": "慢慢走上楼梯",
+      "fps": 30,
+      "n_frames": 240,
+      "n_bones": 23,
+      "seam_jumps": [
+        66.91199742075656
+      ],
+      "duration_s": 8.0
+    }
+  ],
+  "failures": []
+}

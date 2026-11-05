@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "note": "F-18 角色清单：has_bones 声明该 FBX 是否含骨骼；bone_names 是期望的骨架命名（UE_BONE_ORDER，前端加载后做覆盖率校验）。",
+  "characters": [
+    {
+      "name": "SK_Celeste_02.FBX",
+      "has_bones": true,
+      "bone_names": [
+        "root", "pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "head",
+        "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+        "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+        "thigh_l", "calf_l", "foot_l", "ball_l",
+        "thigh_r", "calf_r", "foot_r", "ball_r"
+      ]
+    },
+    {
+      "name": "SK_AKANE_inMask_noScroll.FBX",
+      "has_bones": true,
+      "bone_names": [
+        "root", "pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "head",
+        "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+        "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+        "thigh_l", "calf_l", "foot_l", "ball_l",
+        "thigh_r", "calf_r", "foot_r", "ball_r"
+      ]
+    },
+    {
+      "name": "SK_Chinese_Noble_Girl.FBX",
+      "has_bones": true,
+      "bone_names": [
+        "root", "pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "head",
+        "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+        "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+        "thigh_l", "calf_l", "foot_l", "ball_l",
+        "thigh_r", "calf_r", "foot_r", "ball_r"
+      ]
+    },
+    {
+      "name": "SK_Sun_CASUAL_skirt_no_bones.FBX",
+      "has_bones": false,
+      "bone_names": [],
+      "note": "无骨骼，仅静态展示；不可驱动动作"
+    }
+  ]
+}

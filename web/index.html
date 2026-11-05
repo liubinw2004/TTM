@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TTM · 文本驱动动作生成</title>
+  <link rel="stylesheet" href="./style.css" />
+  <!-- 零构建链：直接用 CDN 上的 ESM three.js，无需 npm / vite / webpack -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">TTM</span>
+      <span class="sub">文本驱动动作生成 · Text-to-Motion</span>
+    </div>
+    <div class="status" id="status">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">检查服务…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左侧控制面板 -->
+    <aside class="panel" id="panel">
+      <section class="block">
+        <label class="label" for="prompt">中文指令</label>
+        <textarea id="prompt" rows="3" spellcheck="false">慢慢走上楼梯</textarea>
+        <div class="chips" id="chips"></div>
+      </section>
+
+      <section class="block">
+        <div class="row">
+          <div class="field">
+            <label class="label" for="duration">时长 <span id="duration-val">5.0</span>s</label>
+            <input id="duration" type="range" min="1" max="12" step="0.5" value="5" />
+          </div>
+        </div>
+        <div class="row two">
+          <div class="field">
+            <label class="label" for="guidance">引导强度 <span id="guidance-val">7.5</span></label>
+            <input id="guidance" type="range" min="1" max="8" step="0.1" value="7.5" />
+          </div>
+          <div class="field">
+            <label class="label" for="steps">采样步数 <span id="steps-val">50</span></label>
+            <input id="steps" type="range" min="5" max="100" step="5" value="50" />
+          </div>
+        </div>
+        <div class="row two">
+          <div class="field">
+            <label class="label" for="smooth">根平滑 <span id="smooth-val">0.20</span></label>
+            <input id="smooth" type="range" min="0" max="0.9" step="0.05" value="0.2" />
+          </div>
+          <div class="field">
+            <label class="label" for="seed">种子</label>
+            <input id="seed" type="number" value="42" min="0" step="1" />
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <button id="generate" class="primary">生成动作</button>
+        <div class="hint" id="hint">首次生成会加载模型（约 10–20 秒），之后秒级响应。</div>
+      </section>
+
+      <section class="block">
+        <label class="label">播放</label>
+        <div class="controls">
+          <button id="play" class="icon" title="播放 / 暂停">❚❚</button>
+          <button id="restart" class="icon" title="回到起点">⟲</button>
+          <select id="character" title="角色">
+            <option value="">（加载中…）</option>
+          </select>
+        </div>
+        <input id="scrub" type="range" min="0" max="0" step="0.001" value="0" />
+        <div class="meta-line">
+          <span id="frame-label">帧 0 / 0</span>
+          <span id="fps-label">30 fps</span>
+        </div>
+        <div class="row two">
+          <label class="switch"><input id="toggle-skeleton" type="checkbox" /> 骨骼</label>
+          <label class="switch"><input id="toggle-rest" type="checkbox" checked /> rest 补偿</label>
+        </div>
+        <div class="row two">
+          <label class="switch"><input id="toggle-grid" type="checkbox" checked /> 地面网格</label>
+          <label class="switch"><input id="toggle-orbit" type="checkbox" checked /> 自动转台</label>
+        </div>
+      </section>
+
+      <section class="block">
+        <label class="label">诊断</label>
+        <dl class="stats" id="stats">
+          <div><dt>窗口</dt><dd id="stat-windows">–</dd></div>
+          <div><dt>接缝台阶</dt><dd id="stat-seam">–</dd></div>
+          <div><dt>总时延</dt><dd id="stat-total">–</dd></div>
+          <div><dt>采样</dt><dd id="stat-sample">–</dd></div>
+          <div><dt>解码</dt><dd id="stat-decode">–</dd></div>
+          <div><dt>融合</dt><dd id="stat-blend">–</dd></div>
+        </dl>
+        <div class="downloads" id="downloads"></div>
+      </section>
+    </aside>
+
+    <!-- 右侧 3D 视口 -->
+    <div class="viewport" id="viewport">
+      <canvas id="canvas"></canvas>
+      <div class="overlay" id="overlay">正在加载 three.js 与角色…</div>
+      <div class="badge" id="badge">rest pose delta：前端计算</div>
+    </div>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

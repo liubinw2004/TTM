@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    %% 时序图 C — 推理链路（详见 TTM-ARCH.md §4.3；A 预处理 / B 训练链路见文档内嵌版）
+    participant W as 浏览器(web/app.js)
+    participant A as server/app.py(FastAPI)
+    participant G as GenerateService(generate.py)
+    participant T as TextEncoder(text_encoder.py)
+    participant S as Sampler(sampling.py)
+    participant Di as DiffusionTransformer(diffusion.py)
+    participant V as MotionVAE(decoder)
+    participant B as blend.py
+    participant R as Retargeter(retarget/apply.py)
+    participant E as export/
+
+    W->>A: POST /generate {prompt, duration, seed, steps, guidance}
+    A->>G: generate(req)
+    G->>T: encode([prompt]) -> 512d -> project -> cond[1,256]
+    G->>B: K = ceil((30*T - 30)/120) 计算窗口数
+    loop K 个窗口（每窗独立采样）
+        G->>S: ddim(cond, seed+i)
+        S->>Di: 50 步 DDIM × CFG（有/无条件双前向）
+        S-->>G: z_i [38,128]
+    end
+    B->>B: 潜空间重叠区(30帧) Hann 融合 + 根位移平移对齐 + 一阶平滑
+    G->>V: decode(z_fused) -> feat[150K,146]
+    G->>G: 反归一化 + 6D -> 四元数(xyzw)
+    G->>R: BVH 系 Pose -> UE_Pose（Spine3 fold + 轴向变换）
+    R-->>A: UE_Pose(F,23,4) + root_pos
+    A-->>W: 201 {motion_id, fps, n_frames}
+    W->>A: GET /motions/{id}.json -> FBX 骨骼即时套用播放
+    W->>A: POST /export {id, format: bvh|motion_json}
+    A->>E: BvhWriter / MotionJsonWriter 落盘 -> 下载流
+    Note over W,E: 热启动端到端 ≤10s；采样本身 ≤5s

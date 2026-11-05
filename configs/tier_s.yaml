@@ -1,0 +1,173 @@
+# TTM 首版正式档 Tier-S：约 40 个细类 × 每类 6-8 条 ≈ 2,500-3,000 片段（PRD §3.5）
+#
+# 用法：python scripts/01_scan.py --config configs/tier_s.yaml
+#       python scripts/02_preprocess.py --config configs/tier_s.yaml
+#       python scripts/03_train_vae.py --config configs/tier_s.yaml
+#       python scripts/04_train_diffusion.py --config configs/tier_s.yaml
+#
+# 数据范围决策（Tier-S）：
+#   * **两个来源**：BVH_Body（行为动作）+ 4.wushu（武术套路）。
+#     两者骨架完全一致（实测 n_joints=23 / root=Hips / fps=120），不需要适配。
+#   * include_categories 只对 BVH_Body 生效；武术根目录下一个前缀都命中不了，
+#     扫描器会自动退化为「扫描整个根目录」（见 scan._iter_take_groups）。
+#   * **配额单位是窗口不是文件**：旧的 max_files 按文件数截断，而文件长度相差近
+#     10 倍（1.12 的长链任务单条 2850 帧 = 19 窗，3.2 的短片段 300 帧 = 2 窗），
+#     等于配额完全失控——实测 1.12 一个类吃掉 19193/22682 = 85% 的窗口。
+
+project:
+  root: D:/TTM
+  cache_dir: D:/TTM/.cache
+  runs_dir: runs
+  data_dir: data
+
+data:
+  tier: S
+  bvh_roots:
+    - Z:/1000hours/BVH_Body
+    - Z:/1000hours/4.wushu
+  # 按语义丰富度与演示价值排序（行走类 > 日常行为 > 持物 > 环境交互 > 对抗 > 运动）
+  include_categories:
+    - 1.7.Daily_Life_Behavior
+    - 1.13.Object_Carrying_And_Manipulation
+    - 1.12.Action_Sequence_Complex_Behavior
+    - 1.9.Special_Worker_Actions
+    - 2.1.Basic_Environment_Interaction_Class
+    - 2.2.Complex_Terrain_Interaction
+    - 3.1.Object_Carrying
+    - 3.2.Environment_Operation
+    - 3.3.Ball_Interaction
+    - 4.1.Box_Ing
+    - 4.3.Equipment_Exercises
+    - 5.3.Pop_Dance
+    - 2.3.Extreme_Env_Interaction
+    - 2.4.Adversarial_Interaction
+  fps: 30
+  window: 150
+  overlap: 30
+  min_tail_frames: 75
+  # 武术 191 个类别里 21 个带多演员（Take_021_nan / Take_021_nv），每类本来就薄，
+  # 卡 1 会白丢 29 个文件（220 → 191）。所以放开到 2；BVH_Body 每个 Take 的
+  # 多演员仍按 2 人保留（去重语义不变：同一 Take 只留固定几个体型）。
+  actors_per_take: 2
+  # 硬保险丝：clip 数上限（真正截断由 max_windows + LFQ 均衡完成）
+  max_files: 4300
+  # 总窗口预算（按窗口而不是按文件截断）
+  max_windows: 30000
+  # 单个细类的窗口硬上限
+  max_windows_per_category: 4000
+  # 单个细类的窗口占比软上限（默认 20%）
+  category_window_share_cap: 0.20
+  # 每个细类尽量凑到的 clip 数（凑不到按实报，不静默丢弃）
+  min_clips_per_leaf: 12
+  # 超长 clip（>900 帧 = 30 秒）的窗口步长，避免长套路吃光预算
+  long_clip_stride_frames: 450
+  val_ratio: 0.1
+  test_ratio: 0.1
+  shard_size: 512
+  # 训练集类别均衡采样（1/sqrt(freq)）；验证/测试集恒关
+  class_balanced: true
+  balance_power: 0.5
+  balance_max_ratio: 60.0
+  # 少样本标签合并（W < 30 窗 → 并到基名）。这不是打磨，是条件可学性的硬约束：
+  # 191 个武术细类总共只有 833 窗、184 个不到 20 窗、中位 4 窗，直接当条件
+  # 等于给模型 191 个「各 4 个样本」的条件，模型只会拟合噪声。
+  # 合并只动标签层（scripts/02b_merge_labels.py），不重跑预处理。
+  merge_rare_labels: true
+  rare_label_min_windows: 30
+  labels_merged_file: labels_merged.jsonl
+  # 训练期武术目标**期望采样占比**：数据侧只有 6.1%（220 文件 / 每类 1.15 个，
+  # 物理上限），但「武术动作」是本项目核心诉求，只能在训练期加权补。
+  # 倍率由闭式解给出（实测 power=0.5 后 8.09% → ×2.006 → 15.00%），不是拍脑袋。
+  balanced_target_wushu_ratio: 0.15
+  # 失败率上限：ARCH §5.1 的 1% 是「系统性坏数据」告警线，不是质量红线，
+  # 判断依据是「失败原因是否单一且可解释」。
+  #
+  # M1' 实测（4300 条入训样本，逐条核对 failed.jsonl 后的事实口径）：
+  #   scan 阶段淘汰 2223 个文件（n_joints=1 的 root-only 轨迹 2168 + n_joints=63
+  #     的非标准骨架 55），全部是**结构性不可用**，不是坏数据；
+  #   preprocess 阶段失败 111 条 = 2.58%：
+  #     * 105 条「帧数不足 2 帧」——72 篮球 + 32 足球 + 1 开门，是 **Z 盘上的
+  #       截断文件**（头部声明的帧数为 0/1），属素材本身损坏；
+  #     * 5 条「足部低于地面」——1.12.8.6 整理卧室 ×2、1.12.8.9 整理客厅 ×2
+  #       （根高度中位 -21 ~ -22cm）、武术「自选刀术第一段」×1（-31cm）；
+  #     * 1 条「窗口数 0」——武术「国际规定棍术一路」只有 53 帧。
+  # 即：105/111 是统一的「文件截断」，且集中在球类；剩余 6 条已逐条点名到具体 clip。
+  # 原因单一可解释，所以阈值放到 3% 让流水线正常退出；超过 3% 才说明又出现了
+  # **新的**坏数据类别，那时应该停下来查。
+  max_failure_rate: 0.03
+
+motion:
+  n_joints: 23
+  feature_dim: 146
+  contact_height_cm: 5.0
+  contact_speed_cmps: 15.0
+
+vae:
+  latent_dim: 128
+  hidden: 512
+  downsample: 4
+  epochs: 200
+  batch_size: 64
+  lr: 0.0003
+  # KL 是对 [38 tokens × 128 dim] = 4864 维**求和**再取 batch 均值，不是逐维平均。
+  # 所以 1e-4 的实际等效权重 ≈ 0.49（≈ 4864 × 1e-4），比重建项（L1≈0.108）还大，
+  # KL 会完全主导并把握后验推到 (mu=0, logvar=0)——实测 mu_std=1e-4、
+  # 重建帧间方差只有真值的 1/17、joint_mae 卡在 19.4°。降到 1e-5 让重建先主导。
+  kl_weight: 0.00001
+  # 线性 warmup：前 20 个 epoch 把 KL 权重从 1/20 渐增到满权重，
+  # 先让解码器学会用 z，再逐步压缩后验。
+  logvar_min: -10.0
+  logvar_max: 2.0
+  kl_warmup_epochs: 20
+  # 只保留最近 3 个 epoch 快照：单 ckpt 120MB，500 epoch 全留是 60GB，
+  # 而 D: 已用到 93%——写满盘会让训练中途崩、best.pt 一起写坏。
+  save_keep_last: 3
+
+diffusion:
+  d_model: 256
+  n_layers: 8
+  n_heads: 8
+  timesteps: 1000
+  ddim_steps: 50
+  epochs: 100
+  batch_size: 64
+  lr: 0.0001
+  cfg_dropout: 0.1
+
+text:
+  encoder: BAAI/bge-small-zh-v1.5
+  # 项目内离线权重（ModelScope 源落盘），禁止联网；TextEncoder 以 local_files_only 加载
+  model_path: D:/TTM/models/bge-small-zh-v1.5
+  frozen: true
+  max_len: 32
+  proj_dim: 256
+
+runtime:
+  seed: 42
+  precision: bf16
+  device: cuda
+  # guidance=7.5 由 05b 四点 sweep 定（runs/eval/guidance_sweep.json，179 条件口径外
+  # 的 9 指令 × 3 seed 对照）：hit 率 0.54/0.71/0.79/0.83、margin 0.024/0.075/0.128/0.161
+  # 随 guidance 单调升；(c) 跨seed特征方差/GT 同条件方差 9.5/9.8/4.4/5.1 全部 ≥0.5，
+  # (d) 帧间粗糙度/GT 0.64/0.65/0.65/0.64 全部 ∈[0.6,1.5] 且几乎不随 guidance 变——
+  # 本模型在 3.0~7.5 区间没有出现「CFG 过强致僵直」，多样性地板不构成上限，
+  # 因此按选值规则取资格档里 hit 率最高的 7.5。
+  guidance: 7.5
+  # 启动瞬态裁头（F-17）：首窗前 12 帧根高有 25~41cm 的横向跳变（GT 同口径
+  # p99=0.58cm / 越阈 0%，所以这是生成侧缺陷不是判据过严）。做法：按
+  # duration + 0.4s(=12 帧) 申请窗口，导出前丢掉前 12 帧，用户侧时长不变；
+  # ground_origin 的平移量在**裁头后的首帧**重新计算（顺序反了脚会重新离地）。
+  # 代价：5s 请求从 1 窗变 2 窗（采样时延约翻倍），这是修 F-17 的必要成本。
+  # 设 0 可关闭。
+  trim_head_frames: 12
+  smooth: 0.2
+  vae_ckpt: ""        # 留空 → runs/tier_s/vae/best.pt
+  diffusion_ckpt: ""  # 留空 → runs/tier_s/diffusion/best.pt
+
+serve:
+  host: 127.0.0.1
+  port: 8765
+  max_duration_s: 12
+
+retarget:
+  spine_merge: fold

@@ -1,0 +1,46 @@
+# TTM 运行环境锁定（Python 3.13 / Windows / PyTorch cu128）
+#
+# 用途：复现 T01–T13 全部产物所需的**精确**版本。安装：
+#
+#   py -3.13 -m venv .venv
+#   . .venv/Scripts/activate
+#   pip install -r requirements.lock.txt --index-url https://download.pytorch.org/whl/cu128 \
+#       --extra-index-url https://pypi.org/simple
+#
+# 说明：
+#   * torch 必须带 cu128 本地版本号，否则 VAE/DiT 训练会退化为 CPU；
+#   * transformers 5.x 的 `AutoModel` 已默认 local_files_only 友好，但我们仍在
+#     TextEncoder 里显式传 local_files_only=True 并设置 TRANSFORMERS_OFFLINE=1，
+#     因为项目**禁止联网**（bge 权重已随仓库下发到 models/bge-small-zh-v1.5）；
+#   * scipy 只用于 `Rotation.as_euler/as_quat`（BVH 欧拉角导出、四元数转换）。
+---
+# --- 深度学习核心 ---
+torch==2.11.0+cu128
+numpy==2.5.4
+scipy==1.18.1
+# --- 文本编码（bge-small-zh-v1.5，23.95M 参数，512 维输出）---
+transformers==5.21.0
+tokenizers==0.23.3
+safetensors==0.8.0
+huggingface_hub==2.3.0
+# --- 配置 / 日志 / 进度 ---
+PyYAML==6.0.3
+tqdm==4.70.1
+# --- 服务层（T10 FastAPI）---
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.1
+pydantic_core==2.50.1
+starlette==1.10.0
+orjson==3.13.0
+# --- 测试 ---
+pytest==9.2.0
+iniconfig==2.3.1
+httpx==0.28.1
+# --- 传递依赖（版本漂移会影响行为，一并锁定）---
+anyio==4.15.1
+filelock==4.2.4
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+regex==2026.9.29
+typing_extensions==4.16.0

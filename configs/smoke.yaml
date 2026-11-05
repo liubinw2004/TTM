@@ -1,0 +1,107 @@
+# TTM 超小冒烟档：2 个细类 × 每类若干条 ≈ 50 片段（TTM-ARCH.md §10 T05/T07 冒烟验收）
+#
+# 用法：python scripts/01_scan.py --config configs/smoke.yaml
+#       python scripts/02_preprocess.py --config configs/smoke.yaml
+#
+# 目的：在 3-5 分钟内跑通「扫描 -> 预处理 -> VAE -> 扩散 -> 推理 -> 前端」全链路，
+# 用来验证代码正确性，**不追求效果**。
+#
+# 注意：本档位产物写到 data/smoke/ 下，不会污染 tier_s 的正式产物。
+
+project:
+  root: D:/TTM
+  cache_dir: D:/TTM/.cache
+  runs_dir: runs/smoke           # 与正式档隔离，避免覆盖 best.pt
+  data_dir: data/smoke           # 与正式档隔离
+
+data:
+  tier: S
+  bvh_roots:
+    - Z:/1000hours/BVH_Body
+  # 只取两个**已实测含 23 关节完整骨架**的大类，保证冒烟一定有数据。
+  # 实测结论（2026-10 快照）：
+  #   * 1.7.3.1.Basic_Gait 下大量 Take_* 是空目录；
+  #   * 1.7.3.3.Stairs_Up_Down / Take_114 等是 root-only 轨迹文件（n_joints=1，按设计淘汰）；
+  #   * 3.3.Ball_Interaction、4.1.Box_Ing、1.12.*、5.3.Pop_Dance 均为 23 关节。
+  # include_categories 是**相对 bvh_roots 的路径前缀**，可写大类也可写细类全路径。
+  include_categories:
+    - 3.3.Ball_Interaction
+    - 4.1.Box_Ing
+  fps: 30
+  window: 150
+  overlap: 30
+  min_tail_frames: 75
+  actors_per_take: 1
+  max_files: 50                  # 超小样本
+  val_ratio: 0.2                 # 小样本下多留一些给验证，便于看 loss
+  test_ratio: 0.1
+  shard_size: 64
+  # 冒烟档只有几十个文件，且实测该批数据里存在大量 root-only / 静止占位片段，
+  # 因此失败率上限放宽；正式档位仍是 ARCH 的 1%。
+  class_balanced: true
+  balance_power: 0.5
+  balance_max_ratio: 60.0
+  # 冒烟档不启用少样本合并（只有 2 个大类，合并会把细类压没，反而看不出链路）
+  merge_rare_labels: false
+  rare_label_min_windows: 30
+  labels_merged_file: labels_merged.jsonl
+  # 冒烟档不含武术，目标占比置 0（否则采样器会把空组算成 1.0 倍率，无害但误导）
+  balanced_target_wushu_ratio: 0.0
+  max_failure_rate: 0.95
+
+motion:
+  n_joints: 23
+  feature_dim: 146
+  contact_height_cm: 5.0
+  contact_speed_cmps: 15.0
+
+vae:
+  latent_dim: 128
+  hidden: 256                    # 冒烟档缩小，CPU 也能跑
+  downsample: 4
+  epochs: 10                     # 验收：10 epoch loss 下降 > 30%
+  batch_size: 8
+  lr: 0.0005
+  # KL 是对 38x128=4864 维求和，1e-4 的等效权重 ≈0.49，比重建项还大，
+  # 会把后验推到 (mu=0, logvar=0) 的驻点上（后验塌缩）。降到 1e-5。
+  kl_weight: 0.00001
+  # 线性 warmup：先让解码器学会用 z，再逐步压缩后验。
+  kl_warmup_epochs: 20
+  # 只保留最近 3 个 epoch 快照（单 ckpt 约 120MB，长训练会写满盘）。
+  save_keep_last: 3
+
+diffusion:
+  d_model: 128                   # 冒烟档缩小
+  n_layers: 4
+  n_heads: 4
+  timesteps: 1000
+  ddim_steps: 20
+  epochs: 5
+  batch_size: 8
+  lr: 0.0002
+  cfg_dropout: 0.1
+
+text:
+  encoder: BAAI/bge-small-zh-v1.5
+  # 项目内离线权重（ModelScope 源落盘），禁止联网；TextEncoder 以 local_files_only 加载
+  model_path: D:/TTM/models/bge-small-zh-v1.5
+  frozen: true
+  max_len: 32
+  proj_dim: 128                  # 与 diffusion.d_model 对齐
+
+runtime:
+  seed: 42
+  precision: fp32                # 冒烟档用 fp32，数值问题更容易暴露
+  device: cuda
+  guidance: 3.0
+  smooth: 0.2
+  vae_ckpt: ""
+  diffusion_ckpt: ""
+
+serve:
+  host: 127.0.0.1
+  port: 8766
+  max_duration_s: 8
+
+retarget:
+  spine_merge: fold

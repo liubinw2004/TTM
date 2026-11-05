@@ -1,0 +1,102 @@
+classDiagram
+    %% TTM 核心数据结构与服务类（详见 TTM-ARCH.md §3）
+    class SkeletonDef {
+        +list~str~ bone_names
+        +list~int~ parents
+        +ndarray rest_offsets_cm [23,3]
+        +int n_joints
+        +str units "cm / Y-up / RH"
+        +fk(euler_rad, root_pos) ndarray[F,23,3]
+        +world_joint_pos(frame) ndarray[23,3]
+        +resample(feat, src_fps, dst_fps) feat'
+        +foot_contacts(world_pos) ndarray[F,2]
+    }
+    class BvhDocument {
+        +SkeletonDef skeleton
+        +ndarray euler_deg [F,23,3]
+        +str euler_order "YXZ"
+        +ndarray root_pos_cm [F,3]
+        +float frame_time
+        +int n_frames
+        +to_rotations_rad() ndarray
+    }
+    class ClipMeta {
+        +str clip_id
+        +str path
+        +str take_id
+        +str category_l1
+        +str category_l2
+        +str category_l3
+        +str zh_label
+        +list~str~ zh_texts
+        +float duration
+        +float fps
+        +int n_frames
+        +str source
+        +str split
+    }
+    class MotionFeature {
+        +ndarray feat [T,146] float32
+        +ndarray mask [T] uint8
+        +int fps
+        +normalize(stats) MotionFeature
+        +denormalize(stats) MotionFeature
+        +to_rotations_root() tuple
+    }
+    class MotionLatent {
+        +ndarray z [B,38,128]
+        +int token_len "38 = ceil(150/4)"
+    }
+    class UE_Pose {
+        +list~str~ ue_bone_names "22+root"
+        +ndarray quat_xyzw [F,23,4]
+        +ndarray root_pos_cm [F,3]
+        +str units "cm"
+        +str up_axis "Z(UE导出) / Y(three.js)"
+        +to_motion_json() dict
+    }
+    class TextEncoder {
+        +str model_name "BAAI/bge-small-zh-v1.5"
+        +encode(list~str~) ndarray[B,512]
+        +project(vec512) ndarray[B,256]
+    }
+    class MotionVAE {
+        +int latent_dim 128
+        +int downsample 4
+        +encode(feat[B,146,T]) tuple
+        +decode(z[B,128,Tp]) ndarray
+    }
+    class DiffusionTransformer {
+        +int d_model 256
+        +int n_layers 8
+        +int n_heads 8
+        +forward(x_t, t, cond) ndarray
+        +param_count() int
+    }
+    class Sampler {
+        +ddim(cond, n_tokens, steps, guidance, seed) MotionLatent
+    }
+    class Retargeter {
+        +apply(feat_denorm) UE_Pose
+    }
+    class BvhWriter {
+        +write(pose, path) None
+    }
+    class MotionJsonWriter {
+        +write(pose, path) dict
+    }
+    class GenerateService {
+        +generate(prompt, duration_s, seed, steps, guidance) UE_Pose
+    }
+    BvhDocument --> SkeletonDef : 解析产出
+    MotionFeature --> ClipMeta : clip_id 关联
+    MotionLatent ..> MotionFeature : VAE.encode
+    MotionFeature ..> MotionLatent : VAE.decode
+    GenerateService --> TextEncoder : 条件编码
+    GenerateService --> Sampler : 逐窗采样
+    GenerateService --> Retargeter : 后处理
+    Sampler --> DiffusionTransformer : DDIM 迭代去噪
+    DiffusionTransformer --> TextEncoder : 交叉注意力条件
+    Retargeter ..> MotionFeature : 反归一化+6D转四元数
+    BvhWriter ..> UE_Pose : 导出
+    MotionJsonWriter ..> UE_Pose : 导出

@@ -1,0 +1,99 @@
+# TTM 全量默认配置（TTM-ARCH.md §5.8 字段表逐条对应）
+#
+# 用法：python scripts/01_scan.py --config configs/default.yaml
+#
+# 说明：本文件是「全量」语义（Tier-M 数据范围 + 完整训练超参）。
+# 首版演示请用 configs/tier_s.yaml；链路调试请用 configs/smoke.yaml。
+
+project:
+  root: D:/TTM                 # 写盘白名单根（PRD §8 硬约束，不可改）
+  cache_dir: D:/TTM/.cache     # PIP/HF/TORCH/TMP 重定向基准
+  runs_dir: runs               # ckpt / logs / samples 产物根
+  data_dir: data               # 预处理产物根（shards/index/labels/norm_stats）
+
+data:
+  tier: M                                   # S | M | L
+  bvh_roots:                                # 只读网络盘，只碰一次
+    - Z:/1000hours/BVH_Body
+    - Z:/1000hours/4.wushu
+  include_categories: null                  # null = 全量；Tier-S 用类别前缀白名单
+  fps: 30                                   # 统一重采样帧率（源 120fps，4x 整除）
+  window: 150                               # 5 秒窗口 @30fps
+  overlap: 30                               # 长动作滑窗重叠
+  min_tail_frames: 75                       # 尾窗保留阈值（不足则 pad+mask）
+  actors_per_take: 1                        # 同一 Take 只保留 1 个演员（防体型过拟合）
+  max_files: 12000                          # 上限保护（Tier-M 去重后约 12,000）
+  max_windows: 60000                        # 总窗口预算（按窗口而不是按文件截断）
+  max_windows_per_category: 6000            # 单个细类窗口硬上限
+  category_window_share_cap: 0.20           # 单个细类窗口占比软上限
+  min_clips_per_leaf: 12                    # 每个细类尽量凑到的 clip 数
+  long_clip_stride_frames: 450              # 超长 clip（>900 帧）的窗口步长
+  class_balanced: true                      # 训练集类别均衡采样（1/sqrt(freq)）
+  balance_power: 0.5
+  merge_rare_labels: true                   # 少样本细标签并到基名（条件可学）
+  rare_label_min_windows: 30                # 合并阈值：W < 30 窗就并
+  labels_merged_file: labels_merged.jsonl   # 训练优先读它
+  balanced_target_wushu_ratio: 0.15         # 武术训练期目标采样占比
+  balance_max_ratio: 60.0
+  val_ratio: 0.1                            # 按 take_id 切分
+  test_ratio: 0.1
+  shard_size: 512                           # npz 分片大小
+
+motion:
+  n_joints: 23                              # 契约常量，只读校验
+  feature_dim: 146                          # 契约常量，只读校验（layout_version=1）
+  contact_height_cm: 5.0                    # 足接触高度阈值
+  contact_speed_cmps: 15.0                  # 足接触速度阈值
+
+vae:
+  latent_dim: 128
+  hidden: 512
+  downsample: 4                             # 150 帧 -> 38 tokens
+  epochs: 200
+  batch_size: 64
+  lr: 0.0003
+  # KL 是对 38x128=4864 维求和，1e-4 的等效权重 ≈0.49，比重建项还大，
+  # 会把后验推到 (mu=0, logvar=0) 的驻点上（后验塌缩）。降到 1e-5。
+  kl_weight: 0.00001
+  # 线性 warmup：先让解码器学会用 z，再逐步压缩后验。
+  kl_warmup_epochs: 20
+  # 只保留最近 3 个 epoch 快照（单 ckpt 约 120MB，长训练会写满盘）。
+  save_keep_last: 3
+
+diffusion:
+  d_model: 256
+  n_layers: 8
+  n_heads: 8
+  timesteps: 1000                           # DDPM 训练
+  ddim_steps: 50                            # DDIM 推理
+  epochs: 100
+  batch_size: 64
+  lr: 0.0001
+  cfg_dropout: 0.1                          # 训练期 10% 条件置空（CFG）
+
+text:
+  encoder: BAAI/bge-small-zh-v1.5
+  # 项目内离线权重（ModelScope 源落盘），禁止联网；TextEncoder 以 local_files_only 加载
+  model_path: D:/TTM/models/bge-small-zh-v1.5           # 24M 冻结中文编码器
+  frozen: true
+  max_len: 32
+  proj_dim: 256
+
+runtime:
+  seed: 42
+  precision: bf16
+  device: cuda
+  guidance: 3.0                             # CFG 强度
+  smooth: 0.2                               # 根轨迹一阶平滑强度
+  # 留空 = 由 run_dir() 按档位推导（runs/tier_<tier>/{vae,diffusion}/best.pt），
+  # 显式填路径则覆盖推导结果（跨档位复用权重时才需要）
+  vae_ckpt: ""
+  diffusion_ckpt: ""
+
+serve:
+  host: 127.0.0.1
+  port: 8765
+  max_duration_s: 12                        # 时长档 3/5/8/12
+
+retarget:
+  spine_merge: fold                         # fold | split（Spine3 降级策略）
