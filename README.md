@@ -12,8 +12,44 @@
 | 骨架 | 23 关节（BVH）/ 22 骨 + `root`（UE），一一同构 |
 | 特征 | **146 维** / 帧，30 fps，150 帧窗口 → VAE 下采样 4× → **38 tokens**，latent 128 |
 | 文本编码 | `BAAI/bge-small-zh-v1.5`（**本地离线**，`models/bge-small-zh-v1.5`，CLS 池化 + L2） |
-| 扩散 | DiT 8 层 / d_model 256 / 8 heads，DDIM η=0，CFG `guidance=3.0` |
+| 扩散 | DiT 8 层 / d_model 256 / 8 heads，DDIM η=0，CFG `guidance=7.5`（四点 sweep 定案，见已知限制 2） |
 | 文档 | `deliverables/software-company/TTM-PRD.md`、`TTM-ARCH.md` |
+
+---
+
+## 效果图
+
+### 运行界面
+
+本地服务 `uvicorn server.app:app` 起在 `127.0.0.1:8765`，浏览器打开即是这个控制台
+（截图取自真实页面，输入「打一套长拳」后 2035ms 返回 150 帧）：
+
+<img src="docs/images/ui-panel.png" width="430" alt="TTM 控制面板">
+
+从输入到播放的链路：中文指令 → bge 文本编码 → DiT 采样（CFG 7.5 / DDIM 50 步）→
+MotionVAE 解码 146 维特征 → 滑窗融合 → 23 关节骨架 → three.js 播放 / BVH 下载。
+面板下方「诊断」实时回显本次的窗口数、接缝台阶、采样/解码/融合耗时，方便定位慢在哪一段。
+
+### 动作效果
+
+下图由 `tools/render_motion_figures.py` 从**导出的 Motion JSON** 直接做正向运动学渲染
+（读 `skeleton.bones` 的 parent + rest_offset_cm，3/4 视角正交投影），不经过浏览器，
+因此不依赖角色网格资产。
+
+**「打一套长拳」（前 3.2 秒，6 帧分解）** — 起势 → 弓步推掌 → 转身：
+
+<img src="docs/images/motion-wushu.png" width="820" alt="长拳动作分解">
+
+<img src="docs/images/motion-wushu.gif" width="300" alt="长拳动作循环">
+
+**「慢慢走上楼梯」（全程 8 秒）** — 抬腿、落步、重心上移，逐级爬升：
+
+<img src="docs/images/motion-stairs.png" width="820" alt="上楼梯动作分解">
+
+<img src="docs/images/motion-stairs.gif" width="300" alt="上楼梯动作循环">
+
+> 重新生成这些图：`python tools/render_motion_figures.py --range 0:96`
+> （`--range` 只对第一条指令生效；留空则整片）
 
 ---
 
@@ -517,6 +553,39 @@ D:/TTM/
      （`clip_060` 剑术 3.61 m/s、`clip_017` 搬箱子 3.03 m/s）已在 `prompts.csv` 加 `note` 保留。
    - **下个 Tier 要做的事**：在 `08_blind_eval.py` 加断言「同指令 3 seed 的 `max_abs_diff > 1e-3`」，
      并把 F-01 拆成「同 seed 可复现」（已 PASS）＋「异 seed 有差异」（当前**未覆盖**，属新缺口）。
+
+8. **前端角色网格加载不出来（3D 视口只有线框骨架）—— 三个缺陷串在一起，2026-11-05 实机验证时发现**：
+   - **第一层：URL 拼错**。`GET /characters` 下发的 `default` 是**裸文件名**（`SK_Celeste_02.FBX`），
+     前端当 URL 直接喂给 `FBXLoader.loadAsync` → 实际请求 `/SK_Celeste_02.FBX` → **404**
+     （站点根只挂 `web/`，FBX 在 `/characters/<name>` 路由下）。
+   - **第二层：修好 URL 会把页面打崩**。改成正确的 `/characters/SK_Celeste_02.FBX` 后，请求成功，
+     然后 `FBXLoader` 在 `genMorphGeometry` 里抛
+     `RangeError: Array buffer allocation failed` → **渲染进程崩溃（Page crashed），JS 侧 catch 不到，整页白屏**。
+     **四个 FBX 全部复现**（`SK_Celeste_02` / `SK_AKANE_inMask_noScroll` / `SK_Chinese_Noble_Girl` /
+     `SK_Sun_CASUAL_skirt_no_bones`），换 `three@0.175` / `0.180` 同样崩，有头模式（真 GPU）也崩。
+   - **第三层：现状是有意的兜底**。因为 404 会走 `catch` 退化成线框骨架（能看见动作，只是没有网格），
+     而「修好」会白屏，所以 `web/app.js` 里**故意保留裸文件名**，并在代码注释里写清了原因——
+     **不要只改那一行**，会从「降级可用」变成「彻底不可用」。
+   - **正确的修法**：把 4 个角色先转成 glTF/GLB（Blender 或 FBX2glTF 一次性离线转），前端改用
+     `GLTFLoader`，保留 FBX 分支做兼容。属 M5 资产流水线，不是验收期能顺手改的。
+   - **为什么验收没抓到**：F-18 只断言「`/characters/<名字>` 返回 200 + manifest 骨骼数对得上」，
+     **没有一条断言「页面里真的出现了网格」**——又是通过项掩盖的缺陷（同 GAP-5 / 规则⑤）。
+   - **证据**：`/tmp/server.log` 里 `GET /SK_Celeste_02.FBX 404`；Playwright 复现 `Page crashed`。
+
+9. **第 2 个窗口可能整体蜷缩（8 秒以上的生成才会暴露）—— 未定位**：
+   用「骨架身高 = 最高关节 Y − 最低关节 Y」逐帧量（数据来自导出的 Motion JSON，与渲染无关）：
+
+   | 指令 | 前 120 帧 p50 | 后 120 帧 p50 | 后半/前半 |
+   |---|---|---|---|
+   | 打一套长拳第七段 | 168.5 cm | **102.6 cm**（min 90.6） | **0.61** |
+   | 打一套太极拳 | — | — | **1.63** |
+   | 慢慢走上楼梯 | 146.9 cm | 142.1 cm | 0.97 |
+
+   长拳这条后 4 秒持续蜷到 103cm（站姿约 170cm），视觉上是「整个人塌下去」；太极反过来涨 1.63 倍。
+   楼梯正常 → **不是 FK / 不是渲染问题，是第 2 窗解码后的动作本体塌了**。
+   影响：5 秒以内的生成基本正常（只有 1 窗），**8 秒以上会看到中段姿势崩坏**，这也是效果图只取
+   长拳前 3.2 秒的原因。**本轮未定位**，怀疑与滑窗融合的根高/尺度在窗口交界处未归一有关，
+   下一个 Tier 的第一件事：按窗号分组统计身高比，先确认是「第 2 窗独立塌」还是「交界处衰减」。
 
 ---
 

@@ -518,7 +518,7 @@ const bootstrap = async () => {
   let preferred = '';
   try {
     const characters = await requestJson('/characters');
-    preferred = characters.default || '';
+    const defaultName = characters.default || '';
     dom.character.innerHTML = '';
     (characters.items || []).forEach((item) => {
       const option = document.createElement('option');
@@ -529,9 +529,18 @@ const bootstrap = async () => {
       // 无骨骼角色在列表里就标出来，别等用户选完加载完才发现驱动不了
       const noBones = item.has_bones === false || /no[_-]?bones/i.test(item.name);
       option.textContent = noBones ? `${item.name}（无骨骼 · 仅静态展示）` : item.name;
-      if (item.name === characters.default) option.selected = true;
+      if (item.name === defaultName) option.selected = true;
       dom.character.appendChild(option);
     });
+
+    // ⚠ 这里**故意**保留裸文件名，不要改成 item.url。
+    // `/characters` 下发的 default 是裸文件名，原来当 URL 用会请求 /SK_xxx.FBX 拿到 404，
+    // 于是走下面的 catch 退化成线框骨架（能看，只是没有网格）。
+    // 一旦改成正确的 /characters/<name>，请求会真的成功，然后 FBXLoader 在解析这批
+    // 资产的 morph target 时把渲染进程打崩（RangeError: Array buffer allocation failed
+    // → Page crashed，JS 侧 catch 不到，整页白屏）。四个 FBX 全部复现，换 three 0.175/0.180 也一样。
+    // 正确修法是先把资产转成 glTF 再用 GLTFLoader（见 README 已知限制 8），不是改这一行。
+    preferred = characters.default || '';
     if (!characters.items || characters.items.length === 0) {
       const option = document.createElement('option');
       option.value = '';
